@@ -102,7 +102,7 @@ chains = BayesFitness.utils.jld2_concat_chains(
 fig = Figure(resolution=(600, 600))
 
 # Generate mcmc_trace_density! plot
-BayesFitness.viz.mcmc_trace_density!(fig, chains; alpha=0.5)</code></pre><div class="admonition is-success"><header class="admonition-header">Tip</header><div class="admonition-body"><p>What we want to see from these plots is that the traces all look relatively similar, with no big gaps where the walker got stuck. Furthermore, we want to see that all the densities converged to very similar-looking distributions. That is indeed the case for our dataset. Moreover, the densities look fairly symmetric, so should be able to parametrize the resulting posterior distribution as a Gaussian for our next step in the inference.</p></div></div><p><img src="figs/fig03.svg" alt/></p><p>Another way of assessing the output of this inference step is to plot the posterior predictive checks against the data. The logic behind the posterior predictive checks is the following: before performing the inference on the parameters we seek to learn form the data, we have a prior belief of what those values can be encoded in our prior distribution. We update this prior belief after observing the experimental data given our likelihood function that captures our model for the data generation process. Thus, the posterior distribution of the parameter values contains our updated belief for what the parameter values can be. Therefore, we can sample out of this parameter posterior distribution and feed such parameters to our likelihood function to generate synthetic data. The expectation is that this simulated data should capture the range of experimental data we observed if the model and the inferred parameters describe the data generation process.</p><p>For this particular case of the population mean fitness, we can use the <a href="stats/#BayesFitness.stats.logfreq_ratio_mean_ppc"><code>BayesFitness.stats.logfreq_ratio_mean_ppc</code></a> from the <a href="stats/"><code>stats</code></a> module to compute the posterior predictive checks. What this function does is to generate samples for the log-frequency ratios used to infer the population mean fitness values.</p><div class="admonition is-info"><header class="admonition-header">Info</header><div class="admonition-body"><p>Note that the <a href="stats/#BayesFitness.stats.logfreq_ratio_mean_ppc"><code>BayesFitness.stats.logfreq_ratio_mean_ppc</code></a> function has methods to work with either <code>MCMCChains.Chains</code> objects or with tidy <code>DataFrames.DataFrame</code>. This allows you to use the data structure you are more comfortable working with.</p></div></div><pre><code class="language-julia hljs"># Name of variables to be extracted from the output MCMC chains on multiple 
+BayesFitness.viz.mcmc_trace_density!(fig, chains; alpha=0.5)</code></pre><div class="admonition is-success"><header class="admonition-header">Tip</header><div class="admonition-body"><p>What we want to see from these plots is that the traces all look relatively similar, with no big gaps where the walker got stuck. Furthermore, we want to see that all the densities converged to very similar-looking distributions. That is indeed the case for our dataset. Moreover, the densities look fairly symmetric, so should be able to parametrize the resulting posterior distribution as a Gaussian for our next step in the inference.</p></div></div><p><img src="figs/fig03.svg" alt/></p><p>Another way of assessing the output of this inference step is to plot the posterior predictive checks against the data. The logic behind the posterior predictive checks is the following: before performing the inference on the parameters we seek to learn form the data, we have a prior belief of what those values can be encoded in our prior distribution. We update this prior belief after observing the experimental data given our likelihood function that captures our model for the data generation process. Thus, the posterior distribution of the parameter values contains our updated belief for what the parameter values can be. Therefore, we can sample out of this parameter posterior distribution and feed such parameters to our likelihood function to generate synthetic data. The expectation is that this simulated data should capture the range of experimental data we observed if the model and the inferred parameters describe the data generation process.</p><p>For this particular case of the population mean fitness, we can use the <a href="stats/#BayesFitness.stats.logfreq_ratio_mean_ppc-Tuple{DataFrames.AbstractDataFrame, Int64}"><code>BayesFitness.stats.logfreq_ratio_mean_ppc</code></a> from the <a href="stats/"><code>stats</code></a> module to compute the posterior predictive checks. What this function does is to generate samples for the log-frequency ratios used to infer the population mean fitness values.</p><div class="admonition is-info"><header class="admonition-header">Info</header><div class="admonition-body"><p>Note that the <a href="stats/#BayesFitness.stats.logfreq_ratio_mean_ppc-Tuple{DataFrames.AbstractDataFrame, Int64}"><code>BayesFitness.stats.logfreq_ratio_mean_ppc</code></a> function has methods to work with either <code>MCMCChains.Chains</code> objects or with tidy <code>DataFrames.DataFrame</code>. This allows you to use the data structure you are more comfortable working with.</p></div></div><pre><code class="language-julia hljs"># Name of variables to be extracted from the output MCMC chains on multiple 
 # .jld2 files
 chain_vars = [:sₜ, :σₜ]
 
@@ -111,12 +111,19 @@ chains = BayesFitness.utils.jld2_concat_chains(
     param[:outputdir], param[:outputname], chain_vars; id_str=&quot;&quot;
 )
 
-# Define number of posterior predictive check samples to simulate
+# Define number of posterior predictive check samples
 n_ppc = 5_000
+
+# Define dictionary with corresponding parameters for variables needed for the
+# posterior predictive checks
+param = Dict(
+    :population_mean_fitness =&gt; :sₜ,
+    :population_std_fitness =&gt; :σₜ,
+)
 
 # Compute posterior predictive checks
 ppc_mat = BayesFitness.stats.logfreq_ratio_mean_ppc(
-    n_ppc, chains, chain_vars...
+    chains, n_ppc; param=param
 )</code></pre><p>Once we generate these samples, we can plot the quantiles of the simulated data with different shades. The <a href="viz/#BayesFitness.viz.ppc_time_series!-Tuple{Makie.Axis, Vector{&lt;:AbstractFloat}, Matrix{&lt;:Real}}"><code>BayesFitness.viz.ppc_time_series!</code></a> function from the <a href="viz/"><code>viz</code></a> module makes this plotting really simple. Let us plot the standard 68-95-97.5 percentiles with different shades of blue and then add the data on top of these shaded areas</p><div class="admonition is-success"><header class="admonition-header">Tip</header><div class="admonition-body"><p>What we expect from this plot is to see that most of the experimental data falls within the range of the simulated data, meaning that the model and the inferred parameters can reproduce the range of our observations.</p></div></div><pre><code class="language-julia hljs"># Initialize figure
 fig = Figure(resolution=(450, 350))
 
@@ -153,7 +160,7 @@ BayesFitness.viz.logfreq_ratio_time_series!(
     color=:black,
     alpha=1.0,
     linewidth=2
-)</code></pre><p><img src="figs/fig04.svg" alt/></p><p>This plot shows that the range of inferred population mean fitnesses does capture the log-frequency ratios of the neutral lineages. Therefore, we can confidently move to the next stage of our inference pipleine.</p><h3 id="Inferring-mutants&#39;-relative-fitness"><a class="docs-heading-anchor" href="#Inferring-mutants&#39;-relative-fitness">Inferring mutants&#39; relative fitness</a><a id="Inferring-mutants&#39;-relative-fitness-1"></a><a class="docs-heading-anchor-permalink" href="#Inferring-mutants&#39;-relative-fitness" title="Permalink"></a></h3><p>Once we make sure that the population mean fitness looks okay, we can tackle the inference of each mutant relative fitness. The process is very similar, the main difference being that we use the results from the previous step as part of the inputs that go into the corresponding Bayesian model defined in the <a href="model/"><code>model</code></a> module. More specifically, the inferred population mean fitness enters our inference as a &quot;prior&quot; on this value. However, we cannot feed the raw output of the MCMC samples we obtained from the previous step as a prior; this prior distribution has to be parametrized. Since our density plots look fairly symmetric, we assume we can parametrize the population mean fitness values as a Gaussian distribution. Thus, we need to fit a Gaussian distribution for each MCMC chain sampled in the previous section. The <a href="stats/#BayesFitness.stats.gaussian_prior_mean_fitness-Tuple{DataFrames.AbstractDataFrame}"><code>BayesFitness.stats.gaussian_prior_mean_fitness</code></a> function in the <a href="stats/"><code>stats</code></a> module can help us with this.</p><div class="admonition is-info"><header class="admonition-header">Info</header><div class="admonition-body"><p>Note that the <a href="stats/#BayesFitness.stats.gaussian_prior_mean_fitness-Tuple{DataFrames.AbstractDataFrame}"><code>BayesFitness.stats.gaussian_prior_mean_fitness</code></a> function has methods to work with either <code>MCMCChains.Chains</code> objects or with tidy <code>DataFrames.DataFrame</code>. This allows you to use the data structure you are more comfortable working with.</p></div></div><pre><code class="language-julia hljs"># Extract mean fitness MCMC chains
+)</code></pre><p><img src="figs/fig04.svg" alt/></p><p>This plot shows that the range of inferred population mean fitnesses does capture the log-frequency ratios of the neutral lineages. Therefore, we can confidently move to the next stage of our inference pipeline.</p><h3 id="Inferring-mutants&#39;-relative-fitness"><a class="docs-heading-anchor" href="#Inferring-mutants&#39;-relative-fitness">Inferring mutants&#39; relative fitness</a><a id="Inferring-mutants&#39;-relative-fitness-1"></a><a class="docs-heading-anchor-permalink" href="#Inferring-mutants&#39;-relative-fitness" title="Permalink"></a></h3><p>Once we make sure that the population mean fitness looks okay, we can tackle the inference of each mutant relative fitness. The process is very similar, the main difference being that we use the results from the previous step as part of the inputs that go into the corresponding Bayesian model defined in the <a href="model/"><code>model</code></a> module. More specifically, the inferred population mean fitness enters our inference as a &quot;prior&quot; on this value. However, we cannot feed the raw output of the MCMC samples we obtained from the previous step as a prior; this prior distribution has to be parametrized. Since our density plots look fairly symmetric, we assume we can parametrize the population mean fitness values as a Gaussian distribution. Thus, we need to fit a Gaussian distribution for each MCMC chain sampled in the previous section. The <a href="stats/#BayesFitness.stats.gaussian_prior_mean_fitness-Tuple{DataFrames.AbstractDataFrame}"><code>BayesFitness.stats.gaussian_prior_mean_fitness</code></a> function in the <a href="stats/"><code>stats</code></a> module can help us with this.</p><div class="admonition is-info"><header class="admonition-header">Info</header><div class="admonition-body"><p>Note that the <a href="stats/#BayesFitness.stats.gaussian_prior_mean_fitness-Tuple{DataFrames.AbstractDataFrame}"><code>BayesFitness.stats.gaussian_prior_mean_fitness</code></a> function has methods to work with either <code>MCMCChains.Chains</code> objects or with tidy <code>DataFrames.DataFrame</code>. This allows you to use the data structure you are more comfortable working with.</p></div></div><pre><code class="language-julia hljs"># Extract mean fitness MCMC chains
 mean_fitness_chains = BayesFitness.utils.jld2_concat_chains(
     &quot;./output/&quot;, &quot;data_01_meanfitness&quot;, [:sₜ]; id_str=&quot;&quot;
 )
@@ -225,7 +232,7 @@ chn = chain[chain_vars]
 fig = Figure(resolution=(600, 350))
 
 # Generate mcmc_trace_density! plot
-BayesFitness.viz.mcmc_trace_density!(fig, chn; alpha=0.5)</code></pre><p><img src="./figs/fig06.svg" alt/></p><p>We can see that the mutant fitness is centered around 1.5. But the Bayesian analysis gives us a principled way to estimate the uncertainty on this estimate.</p><p>To make sure the inferred fitness value agrees with the experimental data, we must generate posterior predictive (retrodictive) checks. For this we need to extract the necessary information from the <code>mcmc_chain</code> object. In particular, we are interested in the mcmc traces for the mutant fitness (named <code>:s⁽ᵐ⁾</code> in the chain), all of the population mean fitness traces (named <code>:s̲ₜ[i]</code> in the chain, where <code>i</code> indexes the time point), the standard deviation for the mutant fitness (named <code>:σ⁽ᵐ⁾</code> in the chain), and the initial barcode frequency (named <code>:f̲⁽ᵐ⁾[1]</code> in the chain).</p><pre><code class="language-julia hljs"># Name variables to be extracted from chains
+BayesFitness.viz.mcmc_trace_density!(fig, chn; alpha=0.5)</code></pre><p><img src="figs/fig06.svg" alt/></p><p>We can see that the mutant fitness is centered around 1.5. But the Bayesian analysis gives us a principled way to estimate the uncertainty on this estimate.</p><p>To make sure the inferred fitness value agrees with the experimental data, we must generate posterior predictive (retrodictive) checks. For this we need to extract the necessary information from the <code>mcmc_chain</code> object. In particular, we are interested in the mcmc traces for the mutant fitness (named <code>:s⁽ᵐ⁾</code> in the chain), all of the population mean fitness traces (named <code>:s̲ₜ[i]</code> in the chain, where <code>i</code> indexes the time point), the standard deviation for the mutant fitness (named <code>:σ⁽ᵐ⁾</code> in the chain), and the initial barcode frequency (named <code>:f̲⁽ᵐ⁾[1]</code> in the chain).</p><pre><code class="language-julia hljs"># Name variables to be extracted from chains
 chain_vars = [Symbol(&quot;s⁽ᵐ⁾&quot;), Symbol(&quot;σ⁽ᵐ⁾&quot;), Symbol(&quot;f̲⁽ᵐ⁾[1]&quot;), :s̲ₜ]
 
 # Locate variable names to extract from chain and append them into a single 
@@ -235,7 +242,7 @@ chain_names = reduce(
 )
 
 # Extract chain variables
-chain = chain[chain_names]</code></pre><p>We also need to extract the actual measurements for the specific barcode we are looking as an example. This can easily be extracted from our tidy data frame.</p><pre><code class="language-julia hljs"># Extract data for barcode example
+chn = chain[chain_names]</code></pre><p>We also need to extract the actual measurements for the specific barcode we are looking as an example. This can easily be extracted from our tidy data frame.</p><pre><code class="language-julia hljs"># Extract data for barcode example
 data_bc = data[data.barcode.==bc, :]
 
 # Sort data by time
@@ -253,7 +260,7 @@ param = Dict(
 
 # Compute posterior predictive checks
 ppc_mat = BayesFitness.stats.freq_mutant_ppc(
-    chain,
+    chn,
     n_ppc;
     param=param
 )</code></pre><p>Next, we can use the <a href="viz/#BayesFitness.viz.ppc_time_series!-Tuple{Makie.Axis, Vector{&lt;:AbstractFloat}, Matrix{&lt;:Real}}"><code>BayesFitness.viz.ppc_time_series!</code></a> function to plot these posterior predictive checks to compare it with the frequency trajectory measured experimentally.</p><pre><code class="language-julia hljs"># Initialize figure
@@ -285,4 +292,58 @@ BayesFitness.viz.ppc_time_series!(
 )
 
 # Add scatter of data
-scatterlines!(ax, data_bc.freq, color=:black)</code></pre><p><img src="./figs/fig07.svg" alt/></p><h2 id="Contents"><a class="docs-heading-anchor" href="#Contents">Contents</a><a id="Contents-1"></a><a class="docs-heading-anchor-permalink" href="#Contents" title="Permalink"></a></h2><ul><li><a href="#BayesFitness">BayesFitness</a></li><li class="no-marker"><ul><li><a href="#Example-inference">Example inference</a></li><li><a href="#Contents">Contents</a></li></ul></li><li><a href="mcmc/#mcmc">mcmc</a></li><li><a href="model/#model">model</a></li><li><a href="stats/#stats">stats</a></li><li><a href="utils/#utils">utils</a></li><li><a href="viz/#viz">viz</a></li></ul></article><nav class="docs-footer"><a class="docs-footer-nextpage" href="mcmc/">mcmc »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Wednesday 31 May 2023 17:12">Wednesday 31 May 2023</span>. Using Julia version 1.8.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+scatterlines!(ax, data_bc.freq, color=:black)</code></pre><p><img src="figs/fig07.svg" alt/></p><div class="admonition is-success"><header class="admonition-header">Tip</header><div class="admonition-body"><p>In the previous plot, the credible region expands as time progresses in the experiment. This is to be expected as the uncertainty is propagated over time with new sources of uncertainty added at each time point. But notice that the experimental frequency trajectory falls within the highest probability region.</p></div></div><p>Another way to visualize the agreement between our inferred parameters and the data is to look at the quantity used directly on the inference of the fitness value, i.e., the log frequency ratio between two adjacent time points. For this we can use the <a href="stats/#BayesFitness.stats.logfreq_ratio_mutant_ppc-Tuple{DataFrames.AbstractDataFrame, Int64}"><code>BayesFitness.stats.logfreq_ratio_mutant_ppc</code></a> function to compute the posterior predictive checks. The difference between this function and the previously used <a href="stats/#BayesFitness.stats.freq_mutant_ppc-Tuple{DataFrames.AbstractDataFrame, Int64}"><code>BayesFitness.stats.freq_mutant_ppc</code></a> is that the log frequency ratio function does not require the inferred initial frequency of the mutant as an input since we are only looking at the log log frequency ratio.</p><pre><code class="language-julia hljs"># Name variables to be extracted from chains
+chain_vars = [Symbol(&quot;s⁽ᵐ⁾&quot;), Symbol(&quot;σ⁽ᵐ⁾&quot;), :s̲ₜ]
+
+# Locate variable names to extract from chain
+chain_names = reduce(
+    vcat, [MCMCChains.namesingroup(chain, var) for var in chain_vars]
+)
+
+# Extract chain variables
+chn = chain[chain_names]
+
+# Define number of posterior predictive check samples
+n_ppc = 5_000
+
+# Define dictionary with corresponding parameters for variables needed for the
+# posterior predictive checks
+param = Dict(
+    :mutant_mean_fitness =&gt; :s⁽ᵐ⁾,
+    :mutant_std_fitness =&gt; :σ⁽ᵐ⁾,
+    :population_mean_fitness =&gt; :s̲ₜ,
+)
+
+# Compute posterior predictive checks
+ppc_mat = BayesFitness.stats.logfreq_ratio_mutant_ppc(
+    chn, n_ppc; param=param
+)</code></pre><p>Again, we can use the <a href="viz/#BayesFitness.viz.ppc_time_series!-Tuple{Makie.Axis, Vector{&lt;:AbstractFloat}, Matrix{&lt;:Real}}"><code>BayesFitness.viz.ppc_time_series!</code></a> function to plot the quantiles for our posterior predictive checks.</p><pre><code class="language-julia hljs"># Initialize figure
+fig = Figure(resolution=(450, 350))
+
+# Add axis
+ax = Axis(
+    fig[1, 1],
+    xlabel=&quot;time point&quot;,
+    ylabel=&quot;ln(fₜ₊₁/fₜ)&quot;,
+    title=&quot;log-frequency ratio PPC&quot;
+)
+
+# Define quantiles to compute
+qs = [0.95, 0.675]
+
+# Define colors
+colors = get(ColorSchemes.Blues_9, LinRange(0.5, 0.75, length(qs)))
+
+# Plot posterior predictive checks
+BayesFitness.viz.ppc_time_series!(
+    ax, qs, ppc_mat; colors=colors
+)
+
+# Add plot for median (we use the 5 percentile to have a &quot;thicker&quot; line showing
+# the median)
+BayesFitness.viz.ppc_time_series!(
+    ax, [0.05], ppc_mat; colors=ColorSchemes.Blues_9[end:end]
+)
+
+# Add scatter of data
+scatterlines!(ax, diff(log.(data_bc.freq)), color=:black)</code></pre><p><img src="figs/fig08.svg" alt/></p><p>We can see that indeed the recovered fitness value greatly agrees with the data.</p><p>This concludes the example inference pipeline. We invited you to explore more the potential in the package and please send any comments/requests through the GitHub repository issues.</p><h2 id="Contents"><a class="docs-heading-anchor" href="#Contents">Contents</a><a id="Contents-1"></a><a class="docs-heading-anchor-permalink" href="#Contents" title="Permalink"></a></h2><ul><li><a href="#BayesFitness">BayesFitness</a></li><li class="no-marker"><ul><li><a href="#Example-inference">Example inference</a></li><li><a href="#Contents">Contents</a></li></ul></li><li><a href="mcmc/#mcmc">mcmc</a></li><li><a href="model/#model">model</a></li><li><a href="stats/#stats">stats</a></li><li><a href="utils/#utils">utils</a></li><li><a href="viz/#viz">viz</a></li></ul></article><nav class="docs-footer"><a class="docs-footer-nextpage" href="mcmc/">mcmc »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Wednesday 31 May 2023 17:59">Wednesday 31 May 2023</span>. Using Julia version 1.8.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
