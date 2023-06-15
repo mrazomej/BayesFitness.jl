@@ -56,7 +56,7 @@ import CSV
 ```
 
 After having imported the libraries, we need to load our dataset into memory.
-This dataset is already in the format needed for `BayesFitness.jl` to work, so
+This dataset is already in the at needed for `BayesFitness.jl` to work, so
 we don't have to modify anything.
 ```julia
 # Import data
@@ -283,7 +283,7 @@ BayesFitness.viz.mcmc_trace_density!(fig, chains; alpha=0.5)
 Another way of assessing the output of this inference step is to plot the
 posterior predictive checks against the data. The logic behind the posterior
 predictive checks is the following: before performing the inference on the
-parameters we seek to learn form the data, we have a prior belief of what those
+parameters we seek to learn from the data, we have a prior belief of what those
 values can be encoded in our prior distribution. We update this prior belief
 after observing the experimental data given our likelihood function that
 captures our model for the data generation process. Thus, the posterior
